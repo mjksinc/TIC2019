@@ -1,11 +1,11 @@
 /*
-  Azure IoT Hub - SaS Token
+  Azure IoT Central
 
-  This sketch securely connects to an Azure IoT Hub using MQTT over NB IoT/LTE Cat M1.
+  This sketch securely connects to an Azure IoT Central using MQTT over NB IoT/LTE Cat M1.
   the native NBSSL library is used to securley connect to the Hub, then Username/Password credentials
   are used to authenticate.
 
-  It publishes a message every 5 seconds to "devices/{deviceId}/messages/events/" topic
+  It publishes a message every 30 seconds to "devices/{deviceId}/messages/events/" topic
   and subscribes to messages on the "devices/{deviceId}/messages/devicebound/#"
   topic.
 */
@@ -13,14 +13,20 @@
 // Libraries to include in the code
 #include <ArduinoMqttClient.h>
 #include <MKRNB.h>
+#include "./base64.h"
+#include "./Sha256.h"
+#include "./utils.h"
 
 // Additional file secretly stores credentials
 #include "arduino_secrets.h"
 
 // Enter your sensitive data in arduino_secrets.h
 const char broker[] = SECRET_BROKER;
-String deviceId = SECRET_DEVICE_ID;
+// String deviceId = SECRET_DEVICE_ID;
 
+String iothubHost;
+String deviceId;
+String sharedAccessKey;
 
 NB nbAccess;
 GPRS gprs;
@@ -33,20 +39,24 @@ void setup() {
   Serial.begin(9600);
   while (!Serial);
 
+  Serial.println("******Splitting Connection String - STARTED*****");
+  splitConnectionString();
+
+  connectNB();
+
+  Serial.print("******Create SAS Token - STARTED*****");
+  // create SAS token and user name for connecting to MQTT broker
+  String url = iothubHost + urlEncode(String("/devices/" + deviceId).c_str());
+  char *devKey = (char *)sharedAccessKey.c_str();
+  long expire = getTime() + 864000;
+  String sasToken = createIotHubSASToken(devKey, url, expire);
+  String username = iothubHost + "/" + deviceId + "/api-version=2016-11-14";
+
+  Serial.println("******Create SAS Token - COMPLETE*****");
+  
   // Set the client id used for MQTT as the device id
   mqttClient.setId(deviceId);
-
-  // Set the username to the correct format and includes password
-  String username;
-
-  username += broker;
-  username += "/";
-  username += deviceId;
-  username += "/api-version=2018-06-30";
-
-  String password = SECRET_PASS;
-
-  mqttClient.setUsernamePassword(username, password);
+  mqttClient.setUsernamePassword(username, sasToken);
 
   // Set the message callback, this function is
   // called when the MQTTClient receives a message
@@ -128,7 +138,7 @@ String getMeasurement() {
   long temp = random(10,30);
   long humidity = random(80,99);
 
-  String formattedMessage = "{\"temperature\": ";
+  String formattedMessage = "{\"temp\": ";
   formattedMessage += temp;
   formattedMessage += "";
 
@@ -136,6 +146,7 @@ String getMeasurement() {
   formattedMessage += humidity;
   formattedMessage += "}";
 
+  Serial.print(formattedMessage);
   return formattedMessage;
 }
 
@@ -154,4 +165,38 @@ void onMessageReceived(int messageSize) {
   Serial.println();
 
   Serial.println();
+}
+
+// split the connection string into it's composite pieces
+void splitConnectionString() {
+    String connStr = CONN_STRING;
+    int hostIndex = connStr.indexOf("HostName=");
+    int deviceIdIndex = connStr.indexOf(F(";DeviceId="));
+    int sharedAccessKeyIndex = connStr.indexOf(";SharedAccessKey=");
+    iothubHost = connStr.substring(hostIndex + 9, deviceIdIndex);
+    deviceId = connStr.substring(deviceIdIndex + 10, sharedAccessKeyIndex);
+    sharedAccessKey = connStr.substring(sharedAccessKeyIndex + 17);
+    Serial.print("******Splitting Connection String - COMPLETE*****");
+}
+
+String createIotHubSASToken(char *key, String url, long expire){
+    url.toLowerCase();
+    String stringToSign = url + "\n" + String(expire);
+    int keyLength = strlen(key);
+
+    int decodedKeyLength = base64_dec_len(key, keyLength);
+    char decodedKey[decodedKeyLength];
+
+    base64_decode(decodedKey, key, keyLength);
+
+    Sha256 *sha256 = new Sha256();
+    sha256->initHmac((const uint8_t*)decodedKey, (size_t)decodedKeyLength);
+    sha256->print(stringToSign);
+    char* sign = (char*) sha256->resultHmac();
+    int encodedSignLen = base64_enc_len(HASH_LENGTH);
+    char encodedSign[encodedSignLen];
+    base64_encode(encodedSign, sign, HASH_LENGTH);
+    delete(sha256);
+
+    return "SharedAccessSignature sr=" + url + "&sig=" + urlEncode((const char*)encodedSign) + "&se=" + String(expire);
 }
