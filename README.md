@@ -48,14 +48,20 @@ Before you get started with your device, there's a few things you'll need to ins
 - Copy the device connection string from your chosen service:
   - **IoT Hub** - This can easily be found in the Azure Portal:
     1. Go to the Azure Portal and select the IoT Hub you deployed.
-    2. In the side menu, select *IoT Devices* then select the IoT Device you created previously
+    2. In the side menu, select *IoT Devices* then select the IoT Device you created previously:
     ![Select Created Device](https://github.com/mjksinc/TIC2019/blob/master/ReferenceImages/Hub_Step-1_Device.png)
     3. Copy the *Connection String* field.
     ![Connection String](https://github.com/mjksinc/TIC2019/blob/master/ReferenceImages/Hub_Step-2_ConnectionString.png)
   - **IoT Central** - This requires a few additional steps:
-    1. Step 1
-    2. Step 2
-    3. Open a new tab in your browser and head to [https://dpscstrgen.azurewebsites.net/](https://dpscstrgen.azurewebsites.net/). Copy in the required parameters from your IoT Central page and select *Submit*
-    4. A new connection string should be generated for your device!
+    1. Go to your IoT Central app and select the device you created previously:
+    ![Device Explorer](https://github.com/mjksinc/TIC2019/blob/master/ReferenceImages/Central_Step-0_Explorer.png)
+    2. Click *Connect* to get the parameters
+    ![Device Connect](https://github.com/mjksinc/TIC2019/blob/master/ReferenceImages/Central_Step-1_Device.png)
+    3. From this screen, you'll need the *Scope ID*, *Device ID*, and the *Primary Key* for the next step
+    ![Device Parameters](https://github.com/mjksinc/TIC2019/blob/master/ReferenceImages/Central_Step-2_Parameters.png)
+    4. Open a new tab in your browser and head to [https://dpscstrgen.azurewebsites.net/](https://dpscstrgen.azurewebsites.net/). Copy in the required parameters from your IoT Central page and select *Submit*
+    ![Conn String](https://github.com/mjksinc/TIC2019/blob/master/ReferenceImages/Central_Step-3_CnnSrgGen.png)
+    5. A new connection string should be generated for your device!
 - Paste into the *CONN_STRING* field in your *arduino_secrets.h* file. You should also copy the Hub Name from your connection string into the *SECRET_BROKER* field.
+![Populate Arduino values](https://github.com/mjksinc/TIC2019/blob/master/ReferenceImages/PopulateValues.png)
 - That's it! You can now connect your device and transmit values to your IoT service.
