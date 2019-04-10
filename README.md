@@ -47,6 +47,11 @@ Before you get started with your device, there's a few things you'll need to ins
   - This file holds sensitive information that you may not want to share (or push to GitHub!). It's easier to hold the seceret values in this file rather than disperse it through your code.
 - Copy the device connection string from your chosen service:
   - **IoT Hub** - This can easily be found in the Azure Portal:
+    1. Go to the Azure Portal and select the IoT Hub you deployed.
+    2. In the side menu, select *IoT Devices* then select the IoT Device you created previously
+    ![Select Created Device](https://github.com/mjksinc/TIC2019/blob/master/ReferenceImages/Hub_Step-1_Device.png)
+    3. Copy the *Connection String* field.
+    ![Connection String](https://github.com/mjksinc/TIC2019/blob/master/ReferenceImages/Hub_Step-2_ConnectionString.png)
   - **IoT Central** - This requires a few additional steps:
     1. Step 1
     2. Step 2
