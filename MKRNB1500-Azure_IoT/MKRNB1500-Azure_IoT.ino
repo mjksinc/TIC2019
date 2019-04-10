@@ -34,7 +34,7 @@ String iothubHost;
 String deviceId;
 String sharedAccessKey;
 
-int msgFreq = 10000; //Message Frequency in millisecods
+int msgFreq = 60000; //Message Frequency in millisecods
 long ttl = 864000; //Time-to-live for SAS Tocken (seconds) i.e. 864000 = 1 day (24 hours)
 
 NB nbAccess;
