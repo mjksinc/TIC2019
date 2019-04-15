@@ -1,19 +1,23 @@
 /*
-  Azure IoT for Arduino MKRNB 1500
+  Azure IoT for Arduino MKR NB 1500
 
-  This sketch securely connects to either Azure IoT Hub or IoT Central using MQTT over NB IoT/LTE Cat M1.
-  the native NBSSL library is used to securley connect to the Hub, then Username/Password credentials
+  Author: Matt Sinclair (@mjksinc)
+
+  This sketch securely connects to either Azure IoT Hub or IoT Central using MQTT over NB-IoT/Cat-M1.
+  The native NBSSL library is used to securley connect to the Hub, then Username/Password credentials
   are used to authenticate.
 
   BEFORE USING:
-  - Ensure that SECRETT_BROKER and CONN_STRING in arduino_secrets.h are completed
+  - Ensure that SECRET_BROKER and CONN_STRING in arduino_secrets.h are completed
   - Change msgFreq as desired
-  - Check ttl to change the life of the SAS TOken for authentication with IoT Hub
+  - Check ttl to change the life of the SAS Token for authentication with IoT Hub
 
   If using IoT Central:
   - Follow these intructions to find the connection details for a real device: https://docs.microsoft.com/en-us/azure/iot-central/tutorial-add-device#get-the-device-connection-information
   - Generate a connection string from this website: https://dpscstrgen.azurewebsites.net/
-  
+
+  Full Intructions available here: https://github.com/mjksinc/TIC2019
+
 */
 
 // Libraries to include in the code
@@ -28,19 +32,20 @@
 
 // Enter your sensitive data in arduino_secrets.h
 const char broker[] = SECRET_BROKER;
-// CONN_STRING: connection string from hub;
+// CONN_STRING: connection string from Hub;
 
 String iothubHost;
 String deviceId;
 String sharedAccessKey;
 
-int msgFreq = 60000; //Message Frequency in millisecods
-long ttl = 864000; //Time-to-live for SAS Tocken (seconds) i.e. 864000 = 1 day (24 hours)
+int msgFreq = 20000; //Message Frequency in millisecods
+long ttl = 864000; //Time-to-live for SAS Token (seconds) i.e. 864000 = 1 day (24 hours)
 
 NB nbAccess;
 GPRS gprs;
 NBSSLClient sslClient;
 MqttClient mqttClient(sslClient);
+NBScanner scannerNetworks;
 
 unsigned long lastMillis = 0;
 
@@ -50,7 +55,7 @@ unsigned long lastMillis = 0;
  */
 void setup() {
   Serial.begin(9600);
-  while (!Serial);
+  while (!Serial); //Comment out this line so the board will run automatically without opening serial port
 
   Serial.println("******Splitting Connection String - STARTED*****");
   splitConnectionString();
@@ -104,7 +109,7 @@ void loop() {
 }
 
 /*
- * Gets current Linux Time in seconcs for enabling timing of SAS Token
+ * Gets current Linux Time in seconds for enabling timing of SAS Token
  */
 unsigned long getTime() {
   // get the current time from the cellular module
@@ -151,7 +156,9 @@ void connectMQTT() {
   Serial.println();
 
   // subscribe to a topic
-  mqttClient.subscribe("devices/" + deviceId + "/messages/devicebound/#");
+  mqttClient.subscribe("devices/" + deviceId + "/messages/devicebound/#"); //This is for cloud-to-device messages
+  mqttClient.subscribe("$iothub/methods/POST/#"); //This is for direct methods + IoT Central commands
+  
 }
 
 /*
@@ -176,12 +183,20 @@ String getMeasurement() {
   long temp = random(10,30);
   long humidity = random(80,99);
 
-  String formattedMessage = "{\"temp\": ";
+  // Begin network scan to get signal strength
+  scannerNetworks.begin();
+
+  String signalStrength = scannerNetworks.getSignalStrength();
+
+  String formattedMessage = "{\"temperature\": ";
   formattedMessage += temp;
-  formattedMessage += "";
 
   formattedMessage += ", \"humidity\": ";
   formattedMessage += humidity;
+
+  formattedMessage += ", \"sigstrength\": ";
+  formattedMessage += signalStrength;
+  
   formattedMessage += "}";
 
   Serial.println(formattedMessage);
@@ -192,9 +207,12 @@ String getMeasurement() {
  * Handles the messages received through the subscribed topic and prints to Serial
  */
 void onMessageReceived(int messageSize) {
+
+  String topic = mqttClient.messageTopic();
+  
   // when receiving a message, print out the topic and contents
   Serial.print("Received a message with topic '");
-  Serial.print(mqttClient.messageTopic());
+  Serial.print(topic);
   Serial.print("', length ");
   Serial.print(messageSize);
   Serial.println(" bytes:");
@@ -205,7 +223,18 @@ void onMessageReceived(int messageSize) {
   }
   Serial.println();
 
-  Serial.println();
+  // Responds with confirmation to direct methods and IoT Central commands 
+  if (topic.startsWith(F("$iothub/methods"))) {
+    String msgId = topic.substring(topic.indexOf("$rid=") + 5);
+
+    String responseTopic = "$iothub/methods/res/200/?$rid=" + msgId; //Returns a 200 received message
+
+    mqttClient.beginMessage(responseTopic);
+    mqttClient.print("");
+    mqttClient.endMessage(); 
+  }
+
+  
 }
 
 /*
